@@ -1,4 +1,3 @@
-
 from PIL import Image
 import cv2
 import time
@@ -64,7 +63,17 @@ if __name__ == "__main__":
 
     # Load and resize the background image
     bgd = cv2.imread('./images/background.jpeg')
-    bgd = cv2.resize(bgd, (width, height))
+    if bgd is None:
+        raise FileNotFoundError("Could not load background image from './images/background.jpeg'")
+    
+    # Get actual frame dimensions after camera setup
+    ret, test_frame = cap.read()
+    if not ret:
+        raise RuntimeError("Could not read from camera")
+    actual_height, actual_width = test_frame.shape[:2]
+    
+    # Resize background to match actual frame dimensions
+    bgd = cv2.resize(bgd, (actual_width, actual_height))
 
     elapsedTime = 0
     count = 0
@@ -80,10 +89,18 @@ if __name__ == "__main__":
 
         # Get segmentation mask
         mask = seg.seg(frame)
-
+        
+        # Debug prints
+        print(f"Frame shape: {frame.shape}")
+        print(f"Background shape: {bgd.shape}")
+        print(f"Mask shape: {mask.shape}")
+        
+        # Ensure mask has same dimensions as frame
+        mask = cv2.resize(mask, (actual_width, actual_height))
+        
         # Merge with background
         fg = cv2.bitwise_or(frame, frame, mask=mask)
-        bg = cv2.bitwise_or(bgd, bgd, mask=~mask)
+        bg = cv2.bitwise_or(bgd, bgd, mask=cv2.bitwise_not(mask))  # Use bitwise_not instead of ~
         out = cv2.bitwise_or(fg, bg)
 
         elapsedTime += (time.time() - t1)

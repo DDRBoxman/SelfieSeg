@@ -49,9 +49,13 @@ class SelfieSegSN:
         # Alpha blending with background image
         mask = mask.view(self.dim, self.dim, 1).cpu().numpy()
         mask = mask * 255
-        mask = mask.reshape(self.dim, self.dim).astype("uint8")
+        mask = mask.reshape(self.dim, self.dim).astype(np.uint8)
         mask = cv2.resize(mask, (self.width, self.height))
-        _, mask = cv2.threshold(mask, 128, 255, 0)
+        _, mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)
+
+        # Ensure mask is 2D
+        if len(mask.shape) > 2:
+            mask = mask[:, :, 0]
 
         return mask
 
@@ -83,11 +87,27 @@ if __name__ == "__main__":
 
         # Get segmentation mask
         mask = seg.seg(frame)
+        
+        # Debug prints
+        print("Frame shape:", frame.shape)
+        print("Mask shape:", mask.shape)
+        print("Frame type:", frame.dtype)
+        print("Mask type:", mask.dtype)
+        
+        # Ensure mask is binary (0 and 255) and has correct type
+        mask = mask.astype(np.uint8)
+        mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)[1]
+        
+        # Resize mask to match frame dimensions
+        mask = cv2.resize(mask, (frame.shape[1], frame.shape[0]))
+        
+        # Resize background to match frame dimensions
+        bgd = cv2.resize(bgd, (frame.shape[1], frame.shape[0]))
 
         # Merge with background
-        fg = cv2.bitwise_or(frame, frame, mask=mask)
-        bg = cv2.bitwise_or(bgd, bgd, mask=~mask)
-        out = cv2.bitwise_or(fg, bg)
+        fg = cv2.bitwise_and(frame, frame, mask=mask)
+        bg = cv2.bitwise_and(bgd, bgd, mask=cv2.bitwise_not(mask))
+        out = cv2.add(fg, bg)
 
         elapsedTime += (time.time() - t1)
         count += 1

@@ -1,4 +1,3 @@
-
 from PIL import Image
 import cv2
 import time
@@ -13,6 +12,9 @@ class SelfieSegMP:
         self.selfie_segmentation = self.mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
 
     def seg(self, frame):
+        # Resize frame to match the expected dimensions
+        frame = cv2.resize(frame, (self.width, self.height))
+        
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         image.flags.writeable = False
@@ -22,7 +24,7 @@ class SelfieSegMP:
         mask = (255 * mask).astype("uint8")
         _, mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)
 
-        return mask
+        return mask, frame
 
 if __name__ == "__main__":
     #"""
@@ -52,7 +54,7 @@ if __name__ == "__main__":
            break
 
         # Get segmentation mask
-        mask = seg.seg(frame)
+        mask, frame = seg.seg(frame)
 
         # Merge with background
         fg = cv2.bitwise_or(frame, frame, mask=mask)

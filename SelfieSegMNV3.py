@@ -14,7 +14,7 @@ class SelfieSegMNV3:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         image = Image.fromarray(rgb)
 
-        image = image.resize((self.dim, self.dim), Image.ANTIALIAS)
+        image = image.resize((self.dim, self.dim), Image.LANCZOS)
         img = np.float32(np.array(image) / 255.0)
         img = img[:, :, 0:3]
 
@@ -23,14 +23,15 @@ class SelfieSegMNV3:
         out = np.float32((out > 0.5)).reshape(self.dim, self.dim)
         mask = (255 * out).astype("uint8")
 
-        mask = cv2.resize(mask, (self.width, self.height))
+        # Resize mask to match the ORIGINAL frame dimensions
+        mask = cv2.resize(mask, (frame.shape[1], frame.shape[0]))
         _, mask = cv2.threshold(mask, 128, 255, 0)
 
         return mask
 
 if __name__ == "__main__":
-    width = 320
-    height = 240
+    width = 640  # Match with actual camera output
+    height = 480  # Match with actual camera output
     seg = SelfieSegMNV3(width, height)
 
     # Capture video from camera
@@ -57,9 +58,18 @@ if __name__ == "__main__":
         # Get segmentation mask
         mask = seg.seg(frame)
 
+        print(f"Mask dtype: {mask.dtype}")
+        print(f"Mask shape: {mask.shape}")
+        print(f"Frame shape: {frame.shape}")
+
+        # Ensure mask is the right type
+        mask = mask.astype(np.uint8)
+
+        # No need to resize here as we're already resizing in the seg() method
+
         # Merge with background
         fg = cv2.bitwise_or(frame, frame, mask=mask)
-        bg = cv2.bitwise_or(bgd, bgd, mask=~mask)
+        bg = cv2.bitwise_or(bgd, bgd, mask=cv2.bitwise_not(mask))  # Use bitwise_not instead of ~
         out = cv2.bitwise_or(fg, bg)
 
         elapsedTime += (time.time() - t1)
